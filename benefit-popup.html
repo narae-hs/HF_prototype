@@ -166,23 +166,40 @@ function PriceFooter(){return(<div style={{flexShrink:0,background:C.white,borde
 /* ── Data ── */
 const P_BASE={id:"1100970",name:"시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1) 시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1)",option:"색상:006_모카베이지 / 사각",qty:"1,000",price:"9,999,999",baseDc:"999,999",cpDc:"9,999,999",bp:"9,999,999"};
 const ACC_ROW={qty:"100",price:"999,999",baseDc:"99,999",cpDc:"99,999",bp:"999,999"};
-const DEFAULT_ACC_ITEM="HA1000306\u00A0\u00A0H) 시공 커튼식 비닐보양지 2.7m*18m";
 const ACC_ITEM_POOL=[
-  DEFAULT_ACC_ITEM,
-  "HA1000307\u00A0\u00A0H) 시공 보양 테이프 48mm*40m",
-  "HA1000308\u00A0\u00A0H) 시공 보호 필름 1.2m*30m",
-  "HA1000309\u00A0\u00A0H) 시공 커버링 시트 1.8m*25m",
-  "HA1000310\u00A0\u00A0H) 시공 바닥 보호패드 600*900",
+  {code:"HA1000306",name:"H) 시공 커튼식 비닐보양지 2.7m*18m"},
+  {code:"HA1000307",name:"H) 시공 보양 테이프 48mm*40m"},
+  {code:"HA1000308",name:"H) 시공 보호 필름 1.2m*30m"},
+  {code:"HA1000309",name:"H) 시공 커버링 시트 1.8m*25m"},
+  {code:"HA1000310",name:"H) 시공 바닥 보호패드 600*900"},
 ];
 const PRODUCT_COUNT=9;
 const randInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+const formatItemLabel=(item)=>`${item.code}\u00A0\u00A0${item.name}`;
 const pickAccItems=()=>{
   const count=randInt(1,3);
   return [...ACC_ITEM_POOL].sort(()=>Math.random()-0.5).slice(0,count);
 };
-const PRODUCTS=Array(PRODUCT_COUNT).fill(null).map(()=>({...P_BASE,acc:{...ACC_ROW,items:pickAccItems()}}));
+const mkAccRows=(items)=>items.map((_,idx)=>({
+  qty:`${100-(idx*10)}`,
+  price:`${999999-(idx*111111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  baseDc:`${99999-(idx*11111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  cpDc:`${99999-(idx*11111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  bp:`${999999-(idx*111111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+}));
+const PRODUCTS=Array(PRODUCT_COUNT).fill(null).map(()=> {
+  const items=pickAccItems();
+  return {...P_BASE,acc:{...ACC_ROW,items,rows:mkAccRows(items)}};
+});
+const mkStageAccRows=(items,adc,note)=>items.map((_,idx)=>({
+  qm:`${999999-(idx*111111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  dc:`${Number(adc.replaceAll(",",""))-(idx*11111)}`.toLocaleString("ko-KR"),
+  dcNote:idx===0?(note||null):null,
+  p:`${999999-(idx*111111)}`.replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  chk:true,
+}));
 const mkS=(dc,adc,note)=>[
-  ...Array(PRODUCT_COUNT).fill(null).map(()=>({qm:"9,999,999",dc,p:"9,999,999",acc:{qm:"999,999",dc:adc,dcNote:note||null,p:"999,999",chk:true}}))
+  ...PRODUCTS.map((product)=>({qm:"9,999,999",dc,p:"9,999,999",acc:{qm:"999,999",dc:adc,dcNote:note||null,p:"999,999",chk:true,rows:mkStageAccRows(product.acc.items,adc,note)}}))
 ];
 const S1=mkS("0","0",null),S2=mkS("999,999","99,999","(10개 수량 할인)"),S3=mkS("999,999","99,999","(10개 수량 할인)"),S4=mkS("999,999","99,999","(10개 수량 할인)");
 
@@ -239,7 +256,7 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
         setTooltipPos({x:e.clientX,y:e.clientY});
       }}
       onMouseLeave={hideResizeTooltip}
-      style={{position:"absolute",right:-4,top:0,bottom:0,width:14,cursor:"col-resize",zIndex:25}}
+      style={{position:"absolute",right:-10,top:0,bottom:0,width:24,cursor:"col-resize",zIndex:25}}
     />
   );
 
@@ -359,6 +376,7 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
               </div>
               {/* Resizer: overflow:hidden wrapper 밖 → 원형 전체 표시, right:-8으로 SP 영역에 걸침 */}
               <Resizer/>
+              <ResizeDragZone/>
             </th>
             <td style={SP}/>{/* prod↔1-2 간격 */}
             <th style={{...TH(W.qty,"right",16,8,{...stickT(1),...bL,...bT,borderTopLeftRadius:4})}}>수량</th>
@@ -454,78 +472,83 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
 
                 {/* ── 아코디언 행: 항상 마운트, CSS Grid gridTemplateRows로 높이 애니메이션
                     open=true: 0fr→1fr (열림), open=false: 1fr→0fr (닫힘) */}
-                {r.acc&&(()=>{
-                  const anim={display:"grid",gridTemplateRows:open[i]?"1fr":"0fr",transition:"grid-template-rows 250ms ease-out",overflow:"hidden"};
-                  const aInner={overflow:"hidden",minHeight:0};
-                  const accBorder=open[i]?(last?bB:bDiv):{};
-                  const accBorderL=open[i]?bL:{};
-                  const accBorderR=open[i]?bRc:{};
-                  const accRadius=open[i]&&last?{borderBottomLeftRadius:4,borderBottomRightRadius:4}:{};
-                  return(
-                    <tr>
-                      <td style={{...stickL(0,C.gray40),...accBorderL,...accBorder,...PW,...accBorderR,...accRadius,padding:0,verticalAlign:"top"}}>
-                        <div style={anim}><div style={aInner}>
-                          <div style={{overflow:"hidden",paddingLeft:67,paddingRight:10,paddingTop:8,paddingBottom:8}}>
-                            {(r.acc.items||[DEFAULT_ACC_ITEM]).map((item,idx)=>(
-                              <div key={idx} style={{display:"flex",gap:4,alignItems:"flex-start",flex:1,minWidth:0,marginTop:idx===0?0:6}}>
-                                <div style={{width:10,height:17,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                    <rect x="2" y="0" width="1" height="8" fill="#CCCCCC"/>
-                                    <rect x="2" y="7" width="6" height="1" fill="#CCCCCC"/>
-                                  </svg>
-                                </div>
-                                <p style={{...F(12,400,C.primary),lineHeight:1.4,overflow:"hidden",whiteSpace:"pre-wrap",textOverflow:"ellipsis",flex:1,minWidth:0}}>{item}</p>
+                {r.acc&&open[i]&&(()=>{
+                  const accItems=(r.acc.items&&r.acc.items.length>0)?r.acc.items:[{code:"HA1000306",name:"H) 시공 커튼식 비닐보양지 2.7m*18m"}];
+                  const accRows=accItems.map((_,idx)=>({
+                    qty:r.acc?.rows?.[idx]?.qty||r.acc.qty,
+                    price:r.acc?.rows?.[idx]?.price||r.acc.price,
+                    baseDc:r.acc?.rows?.[idx]?.baseDc||r.acc.baseDc,
+                    cpDc:r.acc?.rows?.[idx]?.cpDc||r.acc.cpDc,
+                    bp:r.acc?.rows?.[idx]?.bp||r.acc.bp,
+                  }));
+                  return accItems.map((item,idx)=>{
+                    const isAccLast=idx===accItems.length-1;
+                    const rowBorder=isAccLast?(last?bB:bDiv):bDiv;
+                    const rowRadius=isAccLast&&last?{borderBottomLeftRadius:4,borderBottomRightRadius:4}:{};
+                    const stageAccFor=(stageAcc)=>stageAcc?.rows?.[idx]||stageAcc;
+                    return(
+                      <tr key={`acc-${i}-${idx}`}>
+                        <td style={{...stickL(0,C.gray40),...bL,...rowBorder,...PW,...bRc,...rowRadius,padding:0,verticalAlign:"middle"}}>
+                          <div style={{overflow:"hidden",paddingLeft:67,paddingRight:10,paddingTop:12,paddingBottom:12}}>
+                            <div style={{display:"flex",gap:4,alignItems:"flex-start",flex:1,minWidth:0}}>
+                              <div style={{width:10,height:17,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                  <rect x="2" y="0" width="1" height="8" fill="#CCCCCC"/>
+                                  <rect x="2" y="7" width="6" height="1" fill="#CCCCCC"/>
+                                </svg>
                               </div>
-                            ))}
+                              <p style={{...F(12,400,C.primary),lineHeight:1.4,overflow:"hidden",whiteSpace:"pre-wrap",textOverflow:"ellipsis",flex:1,minWidth:0}}>{formatItemLabel(item)}</p>
+                            </div>
                           </div>
-                        </div></div>
-                        <ResizeDragZone/>
-                      </td>
-                      <td style={SP}/>{/* prod↔1-2 간격 */}
-                      {[
-                        {w:W.qty,al:"right",pl:16,pr:8,v:r.acc.qty,ex:{...bL,...(last?{borderBottomLeftRadius:4}:{})}},
-                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.price,ex:{}},
-                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.baseDc,ex:{opacity:.8}},
-                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.cpDc,ex:{}},
-                        {w:W.num,al:"right",pl:8,pr:16,v:r.acc.bp,ex:{...bR,color:C.blue,...(last?{borderBottomRightRadius:4}:{})}},
-                      ].map((c,ci)=>(
-                        <td key={ci} style={{...F(13,400,C.gray800),width:c.w,minWidth:c.w,background:C.gray40,...accBorder,...c.ex,padding:0,verticalAlign:"top",textAlign:c.al}}>
-                          <div style={anim}><div style={aInner}>
-                            <div style={{paddingLeft:c.pl,paddingRight:c.pr,paddingTop:8,paddingBottom:8}}>{c.v}</div>
-                          </div></div>
+                          <ResizeDragZone/>
                         </td>
-                      ))}
-                      {sData.map((S,si)=>(
-                        <React.Fragment key={si}>
-                          <td style={SP}/>
-                          {S[i].acc?(
-                            <>
-                              <td style={{...F(13,400,C.gray800),width:W.chk,minWidth:W.chk,background:C.gray40,...accBorderL,...accBorder,padding:0,verticalAlign:"top",textAlign:"center"}}>
-                                <div style={anim}><div style={aInner}>
-                                  <div style={{paddingLeft:16,paddingRight:8,paddingTop:8,paddingBottom:8,display:"flex",justifyContent:"center"}}><Chk on={S[i].acc.chk} toggle={null} state="disabled_checked"/></div>
-                                </div></div>
-                              </td>
-                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,padding:0,verticalAlign:"top",textAlign:"right"}}>
-                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:8,paddingTop:8,paddingBottom:8}}>{S[i].acc.qm}</div></div></div>
-                              </td>
-                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,padding:0,verticalAlign:"top",textAlign:"right"}}>
-                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:8,paddingTop:8,paddingBottom:8}}>
-                                  {S[i].acc.dcNote?<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end"}}><span>{S[i].acc.dc}</span><span style={{fontSize:10,color:C.blue,lineHeight:1.4}}>{S[i].acc.dcNote}</span></div>:S[i].acc.dc}
-                                </div></div></div>
-                              </td>
-                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,...bR,color:C.blue,padding:0,verticalAlign:"top",textAlign:"right"}}>
-                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:16,paddingTop:8,paddingBottom:8}}>{S[i].acc.p}</div></div></div>
-                              </td>
-                            </>
-                          ):(
-                            <td colSpan={4} style={{...F(13,400,C.gray800),background:C.gray40,...accBorderL,...bR,...accBorder,padding:0,verticalAlign:"top"}}>
-                              <div style={anim}><div style={aInner}><div style={{paddingLeft:16,paddingRight:16,paddingTop:8,paddingBottom:8}}/></div></div>
-                            </td>
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </tr>
-                  );
+                        <td style={SP}/>
+                        {[
+                          {k:"qty",w:W.qty,al:"right",pl:16,pr:8,ex:{...bL,...rowBorder,...(isAccLast&&last?{borderBottomLeftRadius:4}:{})}},
+                          {k:"price",w:W.num,al:"right",pl:8,pr:8,ex:{...rowBorder}},
+                          {k:"baseDc",w:W.num,al:"right",pl:8,pr:8,ex:{...rowBorder,opacity:.8}},
+                          {k:"cpDc",w:W.num,al:"right",pl:8,pr:8,ex:{...rowBorder}},
+                          {k:"bp",w:W.num,al:"right",pl:8,pr:16,ex:{...rowBorder,...bR,color:C.blue,...(isAccLast&&last?{borderBottomRightRadius:4}:{})}},
+                        ].map((c,ci)=>(
+                          <td key={ci} style={{...F(13,400,C.gray800),width:c.w,minWidth:c.w,background:C.gray40,...c.ex,padding:0,verticalAlign:"middle",textAlign:c.al}}>
+                            <div style={{paddingLeft:c.pl,paddingRight:c.pr,paddingTop:12,paddingBottom:12}}>{accRows[idx][c.k]}</div>
+                          </td>
+                        ))}
+                        {sData.map((S,si)=>{
+                          const stageAcc=stageAccFor(S[i].acc);
+                          return(
+                            <React.Fragment key={si}>
+                              <td style={SP}/>
+                              {stageAcc?(
+                                <>
+                                  <td style={{...F(13,400,C.gray800),width:W.chk,minWidth:W.chk,background:C.gray40,...bL,...rowBorder,padding:0,verticalAlign:"middle",textAlign:"center"}}>
+                                    <div style={{paddingLeft:16,paddingRight:8,paddingTop:12,paddingBottom:12,display:"flex",justifyContent:"center"}}>
+                                      <Chk on={stageAcc.chk} toggle={null} state="disabled_checked"/>
+                                    </div>
+                                  </td>
+                                  <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...rowBorder,padding:0,verticalAlign:"middle",textAlign:"right"}}>
+                                    <div style={{paddingLeft:8,paddingRight:8,paddingTop:12,paddingBottom:12}}>{stageAcc.qm}</div>
+                                  </td>
+                                  <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...rowBorder,padding:0,verticalAlign:"middle",textAlign:"right"}}>
+                                    <div style={{paddingLeft:8,paddingRight:8,paddingTop:12,paddingBottom:12}}>
+                                      {stageAcc.dcNote?<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end"}}><span>{stageAcc.dc}</span><span style={{fontSize:10,color:C.blue,lineHeight:1.4}}>{stageAcc.dcNote}</span></div>:stageAcc.dc}
+                                    </div>
+                                  </td>
+                                  <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...rowBorder,...bR,color:C.blue,padding:0,verticalAlign:"middle",textAlign:"right"}}>
+                                    <div style={{paddingLeft:8,paddingRight:16,paddingTop:12,paddingBottom:12}}>{stageAcc.p}</div>
+                                  </td>
+                                </>
+                              ):(
+                                <td colSpan={4} style={{...F(13,400,C.gray800),background:C.gray40,...bL,...bR,...rowBorder,padding:0,verticalAlign:"middle"}}>
+                                  <div style={{paddingLeft:16,paddingRight:16,paddingTop:12,paddingBottom:12}}/>
+                                </td>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    );
+                  });
                 })()}
               </React.Fragment>
             );
