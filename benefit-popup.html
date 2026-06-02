@@ -165,8 +165,25 @@ function PriceFooter(){return(<div style={{flexShrink:0,background:C.white,borde
 
 /* ── Data ── */
 const P_BASE={id:"1100970",name:"시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1) 시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1)",option:"색상:006_모카베이지 / 사각",qty:"1,000",price:"9,999,999",baseDc:"999,999",cpDc:"9,999,999",bp:"9,999,999"};
-const PRODUCTS=[{...P_BASE,acc:{qty:"100",price:"999,999",baseDc:"99,999",cpDc:"99,999",bp:"999,999"}},...Array(7).fill(null).map(()=>({...P_BASE}))];
-const mkS=(dc,adc,note)=>[{qm:"9,999,999",dc,p:"9,999,999",acc:{qm:"999,999",dc:adc,dcNote:note||null,p:"999,999",chk:true}},...Array(7).fill(null).map(()=>({qm:"9,999,999",dc,p:"9,999,999"}))];
+const ACC_ROW={qty:"100",price:"999,999",baseDc:"99,999",cpDc:"99,999",bp:"999,999"};
+const DEFAULT_ACC_ITEM="HA1000306\u00A0\u00A0H) 시공 커튼식 비닐보양지 2.7m*18m";
+const ACC_ITEM_POOL=[
+  DEFAULT_ACC_ITEM,
+  "HA1000307\u00A0\u00A0H) 시공 보양 테이프 48mm*40m",
+  "HA1000308\u00A0\u00A0H) 시공 보호 필름 1.2m*30m",
+  "HA1000309\u00A0\u00A0H) 시공 커버링 시트 1.8m*25m",
+  "HA1000310\u00A0\u00A0H) 시공 바닥 보호패드 600*900",
+];
+const PRODUCT_COUNT=9;
+const randInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+const pickAccItems=()=>{
+  const count=randInt(1,3);
+  return [...ACC_ITEM_POOL].sort(()=>Math.random()-0.5).slice(0,count);
+};
+const PRODUCTS=Array(PRODUCT_COUNT).fill(null).map(()=>({...P_BASE,acc:{...ACC_ROW,items:pickAccItems()}}));
+const mkS=(dc,adc,note)=>[
+  ...Array(PRODUCT_COUNT).fill(null).map(()=>({qm:"9,999,999",dc,p:"9,999,999",acc:{qm:"999,999",dc:adc,dcNote:note||null,p:"999,999",chk:true}}))
+];
 const S1=mkS("0","0",null),S2=mkS("999,999","99,999","(10개 수량 할인)"),S3=mkS("999,999","99,999","(10개 수량 할인)"),S4=mkS("999,999","99,999","(10개 수량 할인)");
 
 /* ════════════════════════════════════════════
@@ -177,6 +194,7 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
 
   /* ── 리사이즈 핸들러 hover 툴팁 (커서 따라다님) ── */
   const [tooltipPos, setTooltipPos] = useState(null);
+  const [isResizeHover, setIsResizeHover] = useState(false);
 
   /* ── tableSection 높이에 맞는 가이드라인 ── */
   const scrollRef = useRef(null);
@@ -199,19 +217,29 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
 
   /* ResizeDragZone: 우측 보더 전체 리사이즈 인터랙션 영역 (투명, 6px, col-resize)
      모든 prod 셀에 삽입 — 헤더·Row0·Row2·데이터행·아코디언 전체 */
-  const hideResizeTooltip = () => setTooltipPos(null);
+  const hideResizeTooltip = () => {
+    setTooltipPos(null);
+    setIsResizeHover(false);
+  };
 
   const ResizeDragZone=()=>(
     <div
+      data-resize-zone="true"
       onMouseDown={(e)=>{
         if(scrollRef.current) setContainerBounds(scrollRef.current.getBoundingClientRect());
         hideResizeTooltip();
         startResize(e);
       }}
-      onMouseEnter={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
-      onMouseMove={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
+      onMouseEnter={(e)=>{
+        setIsResizeHover(true);
+        setTooltipPos({x:e.clientX,y:e.clientY});
+      }}
+      onMouseMove={(e)=>{
+        setIsResizeHover(true);
+        setTooltipPos({x:e.clientX,y:e.clientY});
+      }}
       onMouseLeave={hideResizeTooltip}
-      style={{position:"absolute",right:0,top:0,bottom:0,width:6,cursor:"col-resize",zIndex:25}}
+      style={{position:"absolute",right:-4,top:0,bottom:0,width:14,cursor:"col-resize",zIndex:25}}
     />
   );
 
@@ -234,7 +262,7 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
         </svg>
       </div>
       {/* 커서 따라다니는 툴팁 (Figma 9858-49476) */}
-      {tooltipPos&&!isResizing&&(
+      {isResizeHover&&tooltipPos&&!isResizing&&(
         <div style={{
           position:"fixed",left:tooltipPos.x+12,top:tooltipPos.y+12,
           background:"rgba(0,0,0,0.7)",borderRadius:2,padding:"4px 10px",
@@ -272,7 +300,16 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
      - flex-basis:auto → 자연 높이(콘텐츠 높이) 기준 → 스크롤 없을 때 팝업이 콘텐츠에 맞게 수축 */
   return(
     <React.Fragment>
-    <div ref={scrollRef} onMouseLeave={hideResizeTooltip} style={{overflow:"auto",flex:"1 1 auto",minHeight:0}}>
+    <div
+      ref={scrollRef}
+      onMouseLeave={hideResizeTooltip}
+      onMouseMove={(e)=>{
+        if (!e.target.closest('[data-resize-zone="true"]')) {
+          hideResizeTooltip();
+        }
+      }}
+      style={{overflow:"auto",flex:"1 1 auto",minHeight:0}}
+    >
       <table style={{borderCollapse:"separate",borderSpacing:0,whiteSpace:"nowrap"}}>
         <colgroup>
           <col style={{width:prodW}}/>{/* 상품 — 리사이즈 */}
@@ -429,15 +466,17 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
                       <td style={{...stickL(0,C.gray40),...accBorderL,...accBorder,...PW,...accBorderR,...accRadius,padding:0,verticalAlign:"top"}}>
                         <div style={anim}><div style={aInner}>
                           <div style={{overflow:"hidden",paddingLeft:67,paddingRight:10,paddingTop:8,paddingBottom:8}}>
-                            <div style={{display:"flex",gap:4,alignItems:"flex-start",flex:1,minWidth:0}}>
-                              <div style={{width:10,height:17,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                  <rect x="2" y="0" width="1" height="8" fill="#CCCCCC"/>
-                                  <rect x="2" y="7" width="6" height="1" fill="#CCCCCC"/>
-                                </svg>
+                            {(r.acc.items||[DEFAULT_ACC_ITEM]).map((item,idx)=>(
+                              <div key={idx} style={{display:"flex",gap:4,alignItems:"flex-start",flex:1,minWidth:0,marginTop:idx===0?0:6}}>
+                                <div style={{width:10,height:17,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                    <rect x="2" y="0" width="1" height="8" fill="#CCCCCC"/>
+                                    <rect x="2" y="7" width="6" height="1" fill="#CCCCCC"/>
+                                  </svg>
+                                </div>
+                                <p style={{...F(12,400,C.primary),lineHeight:1.4,overflow:"hidden",whiteSpace:"pre-wrap",textOverflow:"ellipsis",flex:1,minWidth:0}}>{item}</p>
                               </div>
-                              <p style={{...F(12,400,C.primary),lineHeight:1.4,overflow:"hidden",whiteSpace:"pre-wrap",textOverflow:"ellipsis",flex:1,minWidth:0}}>{"HA1000306\u00A0\u00A0H) 시공 커튼식 비닐보양지 2.7m*18m"}</p>
-                            </div>
+                            ))}
                           </div>
                         </div></div>
                         <ResizeDragZone/>
@@ -496,10 +535,10 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
     </div>
     {/* resizeGuideLine: tableSection 높이에 맞게 scoped
         position:fixed + containerBounds → 스크롤 영역 top/height 기준 */}
-    {isResizing&&containerBounds&&(
+    {(isResizing || isResizeHover) && containerBounds && (isResizing || tooltipPos) && (
       <div style={{
         position:"fixed",
-        left:resizeX,
+        left:containerBounds.left + prodW,
         top:containerBounds.top,
         height:containerBounds.height,
         width:2,
@@ -514,8 +553,6 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
 
 /* ── App ── */
 function App(){
-  const[show,setShow]=useState(true);
-  const[closing,setClosing]=useState(false);
   const[cpLeft,setCpLeft]=useState(false);
   const[cpS1,setCpS1]=useState(false);
   const[cpS2,setCpS2]=useState(false);
@@ -526,7 +563,7 @@ function App(){
   const[s2C,setS2C]=useState([...CHK]);
   const[s3C,setS3C]=useState([...CHK]);
   const[s4C,setS4C]=useState([...CHK]);
-  const[openRows,setOpenRows]=useState({0:true});
+  const[openRows,setOpenRows]=useState({});
   const toggleOpen=i=>setOpenRows(p=>({...p,[i]:!p[i]}));
   const expandAll=()=>setOpenRows(Object.fromEntries(PRODUCTS.map((_,i)=>[i,true])));
   const collapseAll=()=>setOpenRows({});
@@ -555,23 +592,19 @@ function App(){
 
   /* 테이블 전체 너비: prodW + 고정 열 합산(2146) + 팝업 좌우 패딩(56)
      auto layout hug 기준 추정: 1-2(426) + spacer×4(32) + stage×4(422×4) = 2146 */
-  const tableW  = prodW + 2154;
-  const popupW  = `min(95vw, ${tableW + 56}px)`;
-  const close=()=>{setClosing(true);setTimeout(()=>{setShow(false);setClosing(false);},IX.modal.d);};
-  const anim=closing?`fo ${IX.modal.d}ms ${IX.modal.e} forwards`:`fi ${IX.modal.d}ms ${IX.modal.e} forwards`;
+  const anim=`fi ${IX.modal.d}ms ${IX.modal.e} forwards`;
 
   return(
     <div style={{width:"100%",height:"100vh",background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',-apple-system,sans-serif"}}>
-      {show&&(
-        <div onClick={e=>e.target===e.currentTarget&&close()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,animation:anim}}>
-          <div style={{width:popupW,background:C.white,borderRadius:2,display:"flex",flexDirection:"column",maxHeight:"90vh",animation:anim,padding:"16px 28px 0"}} onClick={e=>e.stopPropagation()}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,animation:anim}}>
+          <div style={{width:"fit-content",maxWidth:"95vw",background:C.white,borderRadius:2,display:"flex",flexDirection:"column",maxHeight:"90vh",animation:anim,padding:"16px 28px 0"}} onClick={e=>e.stopPropagation()}>
             {/* 전역 col-resize 커서 오버레이 */}
             {isResizing&&<div style={{position:"fixed",inset:0,cursor:"col-resize",userSelect:"none",zIndex:9998}}/>}
             {/* 타이틀 */}
             <div style={{flexShrink:0}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",height:48,padding:"4px 0"}}>
                 <span style={{...F(24,500),lineHeight:1.4}}>혜택 확인하기</span>
-                <div style={{width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={close}>
+                <div style={{width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",cursor:"default"}}>
                   <svg width="21" height="21" viewBox="0 0 21 21" fill="none"><path d="M2 2L19 19M19 2L2 19" stroke={C.primary} strokeWidth="2" strokeLinecap="round"/></svg>
                 </div>
               </div>
@@ -605,15 +638,11 @@ function App(){
             <PriceFooter/>
             {/* btn_foot */}
             <div style={{display:"flex",justifyContent:"center",gap:8,padding:"16px 0 24px",flexShrink:0}}>
-              <button onClick={close} style={{...F(16,400),width:141,height:48,border:`1px solid ${C.primary}`,borderRadius:30,background:C.white,cursor:"pointer"}}>취소</button>
-              <button onClick={close} style={{...F(16,400,C.white),width:141,height:48,border:"none",borderRadius:30,background:C.primary,cursor:"pointer"}}>확인</button>
+              <button style={{...F(16,400),width:141,height:48,border:`1px solid ${C.primary}`,borderRadius:30,background:C.white,cursor:"default"}}>취소</button>
+              <button style={{...F(16,400,C.white),width:141,height:48,border:"none",borderRadius:30,background:C.primary,cursor:"default"}}>확인</button>
             </div>
           </div>
         </div>
-      )}
-      {!show&&(
-        <button onClick={()=>setShow(true)} style={{...F(16,400,C.white),background:C.primary,border:"none",borderRadius:30,padding:"14px 32px",cursor:"pointer"}}>혜택 확인하기 열기</button>
-      )}
     </div>
   );
 }
