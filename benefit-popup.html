@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>혜택 확인하기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+::-webkit-scrollbar{height:6px;width:6px}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes fo{from{opacity:1}to{opacity:0}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useRef}=React;
+
+/* ── Tokens ── */
+const C={
+  primary:"#121212",blue:"#0064ff",red:"#FF3C3C",
+  gray40:"#F9F9F9",gray100:"#EFEFEF",gray200:"#E2E2E2",
+  gray600:"#999999",gray700:"#666666",gray800:"#484848",
+  blue800:"#003F7D",white:"#FFFFFF",
+};
+const IX={modal:{d:200,e:"ease-in-out"},chk:{d:150}};
+const F=(sz,w=400,c=C.primary)=>({fontFamily:"'Pretendard',-apple-system,sans-serif",fontSize:sz,fontWeight:w,color:c,lineHeight:1.4});
+
+/* ── Column widths (prod는 리사이즈로 동적) ── */
+const W={qty:40,num:88,chk:49,sp:8};
+
+/* ── Sticky helpers ──
+   ROW heights: [CouponSection=48, Header=42, Divider=1]
+   TOP: r0=0, r1=48, r2=90 */
+const RH=[48,42,1];
+const TOP={r0:0,r1:48,r2:90};
+const stickL =(left,bg=C.white,z=5 )=>({position:"sticky",left, background:bg,zIndex:z});
+const stickT =(row, bg=C.white,z=10)=>({position:"sticky",top:TOP[`r${row}`],background:bg,zIndex:z});
+const stickTL=(row,left,bg=C.white,z=20)=>({position:"sticky",top:TOP[`r${row}`],left,background:bg,zIndex:z});
+
+/* ── NewCheckBox ── */
+function Chk({on,toggle,state}){
+  const s=state||(on?"checked":"enabled");
+  const bg = s==="checked"         ? C.primary   :
+             s==="disabled_checked" ? C.gray200   :
+             s.startsWith("disabled") ? C.gray40  : C.white;
+  const border = (s==="checked"||s==="disabled_checked") ? "none" : `1px solid ${C.gray200}`;
+  const iconC  = (s==="checked"||s==="disabled_checked") ? C.white : null;
+  return(
+    <div onClick={toggle} style={{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",cursor:toggle?"pointer":"default",flexShrink:0}}>
+      <div style={{width:18,height:18,borderRadius:2,background:bg,border,display:"flex",alignItems:"center",justifyContent:"center",transition:`all ${IX.chk.d}ms`}}>
+        {iconC&&<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 3.5L3.5 6.5L9 1" stroke={iconC} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Info Icon ── */
+function InfoIcon(){
+  return(
+    <div style={{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",padding:2,flexShrink:0,cursor:"pointer"}}>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="9" stroke={C.gray200} strokeWidth="1.5"/>
+        <line x1="10" y1="9" x2="10" y2="14" stroke={C.gray600} strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="10" cy="6.5" r="0.8" fill={C.gray600}/>
+      </svg>
+    </div>
+  );
+}
+
+/* ── CouponSection productCoupon ── */
+function CouponSectionProduct({applied,onToggle}){
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 4px",height:40}}>
+      <div style={{display:"flex",alignItems:"flex-start",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <Chk on={true} toggle={()=>{}}/>
+          <span style={{...F(14,400),lineHeight:"20px",whiteSpace:"nowrap"}}>최적 할인 쿠폰 적용</span>
+        </div>
+        <InfoIcon/>
+      </div>
+      <p style={{...F(13,500,C.gray600),flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1}}>상품 쿠폰을 적용해주세요</p>
+      <button onClick={onToggle} style={{height:28,padding:"6px 10px",background:applied?C.primary:C.white,border:`1px solid ${C.primary}`,borderRadius:2,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+        <span style={{...F(12,500,applied?C.white:C.primary),lineHeight:1,whiteSpace:"nowrap"}}>상품 쿠폰 적용</span>
+        {applied&&<svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1.5" stroke={C.white} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      </button>
+    </div>
+  );
+}
+
+/* ── CouponSection paymentCoupon ── */
+function CouponSectionPayment({stage,applied,onToggle}){
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:6,padding:"6px 4px",height:48}}>
+      <p style={{...F(13,500,C.gray600),flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1}}>결제 쿠폰을 적용해주세요</p>
+      <button onClick={onToggle} style={{height:28,padding:"6px 10px",background:applied?C.primary:C.white,border:`1px solid ${C.primary}`,borderRadius:2,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+        <span style={{...F(12,500,applied?C.white:C.primary),lineHeight:1,whiteSpace:"nowrap"}}>{stage}단계 결제 쿠폰 적용</span>
+        {applied&&<svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5L4.5 8.5L11 1.5" stroke={C.white} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      </button>
+    </div>
+  );
+}
+
+/* ── Flag badge ── */
+function Flag({label}){
+  return(
+    <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",height:20,padding:"4px 6px",border:`1px solid ${C.gray200}`,borderRadius:2,background:C.white,flexShrink:0}}>
+      <span style={{...F(12,400),lineHeight:1}}>{label}</span>
+    </div>
+  );
+}
+
+/* ── bottomFixed_CR ── */
+const CR_STAGES=[
+  {label:"1단계 결제 쿠폰 적용",tags:[{f:"가구",v:"999,999원"},{f:"바스",v:"999,999원"},{f:"키친",v:"999,999원"},{f:"키친",v:"999,999원"}]},
+  {label:"2단계 결제 쿠폰 적용",tags:[{f:"가구",v:"999,999원"},{f:"키친",v:"999,999원"},{f:"키친",v:"999,999원"},{f:"키친",v:"999,999원"},{f:"바스",v:"999,999원"}]},
+  {label:"3단계 결제 쿠폰 적용",tags:[{f:"가구",v:"999,999원"},{f:"중문",v:"999,999원"},{f:"키친",v:"999,999원"}]},
+  {label:"4단계 결제 쿠폰 적용",tags:[{f:"바스",v:"999,999원"},{f:"키친",v:"999,999원"},{f:"중문",v:"999,999원"},{f:"가구",v:"999,999원"},{f:"조명",v:"999,999원"},{f:"도어",v:"999,999원"}]},
+];
+function BottomFixedCR(){
+  const[type,setType]=useState("expand");
+  const isCollapse=type==="Collapse";
+  return(
+    <div style={{background:C.gray100,borderTop:`1px solid ${C.gray200}`,borderLeft:`1px solid ${C.gray200}`,borderRight:`1px solid ${C.gray200}`,borderRadius:"12px 12px 0 0",overflow:"hidden",padding:"14px 24px",display:"flex",gap:20,alignItems:"flex-start",justifyContent:"center",flexShrink:0,height:isCollapse?38:"auto"}}>
+      <button onClick={()=>setType(t=>t==="expand"?"Collapse":"expand")} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",flexShrink:0,padding:0}}>
+        <span style={{...F(13,700,C.gray800),lineHeight:1,whiteSpace:"nowrap"}}>공정별 CR 금액</span>
+        <div style={{width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            {isCollapse?<path d="M2 8L6 4L10 8" stroke={C.gray800} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>:<path d="M2 4L6 8L10 4" stroke={C.gray800} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>}
+          </svg>
+        </div>
+      </button>
+      <div style={{display:"flex",flex:1,alignItems:"flex-start",justifyContent:"space-between",maxWidth:1600,minWidth:1}}>
+        {CR_STAGES.map((stage,si)=>(
+          <React.Fragment key={si}>
+            {si>0&&(<div style={{display:"flex",alignItems:"center",padding:"0 28px",height:"100%",flexShrink:0}}><div style={{width:1,height:"100%",background:C.gray200}}/></div>)}
+            <div style={{display:"flex",flexDirection:"column",gap:10,flex:1,maxWidth:328,minWidth:100}}>
+              <div style={{height:16,display:"flex",alignItems:"center"}}><span style={{...F(12,700,C.blue800),lineHeight:1}}>{stage.label}</span></div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"4px 14px",alignContent:"flex-start"}}>
+                {stage.tags.map((tag,ti)=>(
+                  <div key={ti} style={{display:"flex",alignItems:"center",gap:4,height:20,flexShrink:0}}>
+                    <Flag label={tag.f}/><span style={{...F(13,500),lineHeight:1,whiteSpace:"nowrap"}}>{tag.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── PriceFooter ── */
+function SubtractIcon(){return(<div style={{width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><svg width="14" height="14" viewBox="0 0 15.43 15.43" fill="none"><path fillRule="nonzero" d="M7.714 0C11.975 0 15.429 3.454 15.429 7.714C15.429 11.975 11.975 15.429 7.714 15.429C3.454 15.429 0 11.975 0 7.714C0 3.454 3.454 0 7.714 0ZM3.429 6.857L3.429 8.571L12 8.571L12 6.857Z" fill={C.gray600}/></svg></div>);}
+function EqualIcon(){return(<div style={{width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><svg width="14" height="14" viewBox="0 0 15.43 15.43" fill="none"><circle cx="7.714" cy="7.714" r="7" stroke={C.primary} strokeWidth="1.4"/><line x1="3.8" y1="6" x2="11.6" y2="6" stroke={C.primary} strokeWidth="1.4" strokeLinecap="round"/><line x1="3.8" y1="9.4" x2="11.6" y2="9.4" stroke={C.primary} strokeWidth="1.4" strokeLinecap="round"/></svg></div>);}
+function PriceItem({label,value,valueColor=C.primary,width}){return(<div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"center",width,textAlign:"center"}}><span style={{...F(13,400,C.gray700),lineHeight:"18px",whiteSpace:"nowrap"}}>{label}</span><span style={{...F(18,500,valueColor),lineHeight:1.4,whiteSpace:"nowrap"}}>{value}</span></div>);}
+function PriceFooter(){return(<div style={{flexShrink:0,background:C.white,borderTop:`1px solid ${C.gray200}`}}><div style={{display:"flex",alignItems:"center",gap:16,justifyContent:"center",padding:"20px 0 12px"}}><PriceItem label="판매가" value="100,000,000원" width={121}/><SubtractIcon/><PriceItem label="기본 할인" value="200,000원" valueColor={C.red} width={86}/><SubtractIcon/><PriceItem label="상품 쿠폰 할인" value="100,000원" valueColor={C.red} width={84}/><SubtractIcon/><PriceItem label="결제 쿠폰 할인" value="700,000원" valueColor={C.red} width={85}/><EqualIcon/><PriceItem label="최종 상품 혜택가" value="10,000,000원" width={110}/></div></div>);}
+
+/* ── Data ── */
+const P_BASE={id:"1100970",name:"시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1) 시그니처 리노아 붙박이장 베이지 와이드 장식파우더형(17종/택1)",option:"색상:006_모카베이지 / 사각",qty:"1,000",price:"9,999,999",baseDc:"999,999",cpDc:"9,999,999",bp:"9,999,999"};
+const PRODUCTS=[{...P_BASE,acc:{qty:"100",price:"999,999",baseDc:"99,999",cpDc:"99,999",bp:"999,999"}},...Array(7).fill(null).map(()=>({...P_BASE}))];
+const mkS=(dc,adc,note)=>[{qm:"9,999,999",dc,p:"9,999,999",acc:{qm:"999,999",dc:adc,dcNote:note||null,p:"999,999",chk:true}},...Array(7).fill(null).map(()=>({qm:"9,999,999",dc,p:"9,999,999"}))];
+const S1=mkS("0","0",null),S2=mkS("999,999","99,999","(10개 수량 할인)"),S3=mkS("999,999","99,999","(10개 수량 할인)"),S4=mkS("999,999","99,999","(10개 수량 할인)");
+
+/* ════════════════════════════════════════════
+   BenefitTable
+════════════════════════════════════════════ */
+function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLeft,cpS1,setCpS1,cpS2,setCpS2,cpS3,setCpS3,cpS4,setCpS4,s1C,setS1C,s2C,setS2C,s3C,setS3C,s4C,setS4C,
+  prodW,startResize,isResizing,resizeX}){
+
+  /* ── 리사이즈 핸들러 hover 툴팁 (커서 따라다님) ── */
+  const [tooltipPos, setTooltipPos] = useState(null);
+
+  /* ── tableSection 높이에 맞는 가이드라인 ── */
+  const scrollRef = useRef(null);
+  const [containerBounds, setContainerBounds] = useState(null);
+
+  const STR=C.gray200;
+  const bL={borderLeft:`1px solid ${STR}`};
+  const bR={borderRight:`1px solid ${STR}`};
+  const bT={borderTop:`1px solid ${STR}`};
+  const bB={borderBottom:`1px solid ${STR}`};
+  const bDiv={borderBottom:`1px solid ${C.gray100}`};
+  const SP={width:W.sp,minWidth:W.sp,padding:0,background:"transparent",border:"none"};
+
+  /* Figma 1-1 프레임: border 전체 + borderRadius:4 전체 항상 적용
+     (overflow-clip 효과는 각 셀의 overflow:hidden으로 구현) */
+  const bRc = bR; // 항상 right border 적용
+
+  /* prod 셀 공통 너비: maxWidth 추가로 auto layout에서도 정확히 prodW 고정 */
+  const PW={width:prodW,minWidth:prodW,maxWidth:prodW};
+
+  /* ResizeDragZone: 우측 보더 전체 리사이즈 인터랙션 영역 (투명, 6px, col-resize)
+     모든 prod 셀에 삽입 — 헤더·Row0·Row2·데이터행·아코디언 전체 */
+  const ResizeDragZone=()=>(
+    <div
+      onMouseDown={(e)=>{
+        if(scrollRef.current) setContainerBounds(scrollRef.current.getBoundingClientRect());
+        startResize(e);
+      }}
+      onMouseEnter={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
+      onMouseMove={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
+      onMouseLeave={()=>setTooltipPos(null)}
+      style={{position:"absolute",right:0,top:0,bottom:0,width:6,cursor:"col-resize",zIndex:25}}
+    />
+  );
+
+  /* Resizer: 헤더에만 표시되는 시각 인디케이터 (원형 아이콘, 클릭은 ResizeDragZone으로 처리)
+     Figma 9858-120173: 16×16 원형, border:#b3b3b3, bg:white */
+  const Resizer=()=>(
+    <>
+      <div style={{
+        position:"absolute",right:-8,top:"50%",transform:"translateY(-50%)",
+        width:16,height:16,borderRadius:"50%",
+        border:`1px solid #b3b3b3`,background:C.white,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        pointerEvents:"none", // 클릭은 ResizeDragZone이 처리
+        zIndex:30,flexShrink:0,
+      }}>
+        <svg width="9" height="5" viewBox="0 0 9 5" fill="none">
+          <path d="M2 0.5L0.5 2.5L2 4.5" stroke="#b3b3b3" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M7 0.5L8.5 2.5L7 4.5" stroke="#b3b3b3" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="0.5" y1="2.5" x2="8.5" y2="2.5" stroke="#b3b3b3" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
+      </div>
+      {/* 커서 따라다니는 툴팁 (Figma 9858-49476) */}
+      {tooltipPos&&!isResizing&&(
+        <div style={{
+          position:"fixed",left:tooltipPos.x+12,top:tooltipPos.y+12,
+          background:"rgba(0,0,0,0.7)",borderRadius:2,padding:"4px 10px",
+          color:C.white,fontSize:10,fontWeight:400,lineHeight:1.4,
+          whiteSpace:"nowrap",pointerEvents:"none",zIndex:99999,
+          fontFamily:"'Pretendard',-apple-system,sans-serif",
+        }}>
+          드래그하여 너비 조절
+        </div>
+      )}
+    </>
+  );
+
+  const TH=(w,al,pl,pr,ex={})=>({...F(13,400,C.gray600),width:w,minWidth:w,textAlign:al,paddingLeft:pl,paddingRight:pr,paddingTop:12,paddingBottom:12,verticalAlign:"middle",...ex});
+  const TD=(w,al,pl,pr,ex={})=>({...F(13,500),width:w,minWidth:w,textAlign:al,paddingLeft:pl,paddingRight:pr,minHeight:76,height:76,verticalAlign:"middle",...ex});
+  const AC=(w,al,pl,pr,ex={})=>({...F(13,400,C.gray800),width:w,minWidth:w,textAlign:al,paddingLeft:pl,paddingRight:pr,paddingTop:8,paddingBottom:8,verticalAlign:"middle",background:C.gray40,...ex});
+
+  const stageHeaders=[
+    [{n:"할인 대상",a:"center",pl:16},{n:"혜택적용 상품가",a:"right",pl:8},{n:"결제 쿠폰 할인",a:"right",pl:8},{n:"1단계 혜택가",a:"right",pl:8,last:true}],
+    [{n:"할인 대상",a:"center",pl:16},{n:"1단계 혜택가",a:"right",pl:8},{n:"결제 쿠폰 할인",a:"right",pl:8},{n:"2단계 혜택가",a:"right",pl:8,last:true}],
+    [{n:"할인 대상",a:"center",pl:16},{n:"2단계 혜택가",a:"right",pl:8},{n:"결제 쿠폰 할인",a:"right",pl:8},{n:"3단계 혜택가",a:"right",pl:8,last:true}],
+    [{n:"할인 대상",a:"center",pl:16},{n:"3단계 혜택가",a:"right",pl:8},{n:"결제 쿠폰 할인",a:"right",pl:8},{n:"4단계 혜택가",a:"right",pl:8,last:true}],
+  ];
+  const sData=[S1,S2,S3,S4];
+  const sChecks=[s1C,s2C,s3C,s4C];
+  const sSetters=[setS1C,setS2C,setS3C,setS4C];
+  const isLast=i=>i===rows.length-1;
+
+  /* 전체 테이블 너비 = prodW + 나머지 고정 열 합산 */
+  const tableW = prodW + 2154; // +8 (prod↔1-2 SP 추가)
+
+  /* flex:"1 1 auto":
+     - flex-grow:1   → 90vh 초과 시 남은 공간 채움 (스크롤 발생)
+     - flex-shrink:1 → 부모 압박 시 축소 가능
+     - flex-basis:auto → 자연 높이(콘텐츠 높이) 기준 → 스크롤 없을 때 팝업이 콘텐츠에 맞게 수축 */
+  return(
+    <React.Fragment>
+    <div ref={scrollRef} style={{overflow:"auto",flex:"1 1 auto",minHeight:0}}>
+      <table style={{borderCollapse:"separate",borderSpacing:0,whiteSpace:"nowrap"}}>
+        <colgroup>
+          <col style={{width:prodW}}/>{/* 상품 — 리사이즈 */}
+          <col style={{width:W.sp}}/>{/* prod↔1-2 간격 (Figma: 8px gap) */}
+          <col style={{width:W.qty}}/><col style={{width:W.num}}/><col style={{width:W.num}}/><col style={{width:W.num}}/><col style={{width:W.num}}/>
+          {[0,1,2,3].map(s=>(
+            <React.Fragment key={s}>
+              <col style={{width:W.sp}}/>
+              <col style={{width:W.chk}}/><col style={{width:W.num}}/><col style={{width:W.num}}/><col style={{width:W.num}}/>
+            </React.Fragment>
+          ))}
+        </colgroup>
+
+        <thead>
+          {/* ── Row 0: CouponSection 행 (top:0) ── */}
+          <tr style={{height:RH[0]}}>
+            {/* Row0 prod td: Frame 815036 — 버튼 영역, 우측 border 없음 (tableGroup 밖) */}
+            <td style={{...stickTL(0,0),...PW,padding:0,verticalAlign:"middle"}}>
+              <div style={{display:"flex",gap:4,alignItems:"center",width:"100%",height:"100%",overflow:"hidden"}}>
+                {[{label:"상품 모두 펼치기",fn:expandAll},{label:"상품 모두 접기",fn:collapseAll}].map(b=>(
+                  <button key={b.label} onClick={b.fn} style={{height:28,padding:"6px 10px",background:C.white,border:`1px solid ${C.gray200}`,borderRadius:2,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>
+                    <span style={{...F(12,500),lineHeight:1,whiteSpace:"nowrap"}}>{b.label}</span>
+                  </button>
+                ))}
+              </div>
+              <ResizeDragZone/>
+            </td>
+            <td style={SP}/>{/* prod↔1-2 간격 */}
+            <td colSpan={5} style={{...stickT(0),padding:0,verticalAlign:"middle"}}>
+              <CouponSectionProduct applied={cpLeft} onToggle={()=>setCpLeft(p=>!p)}/>
+            </td>
+            <td style={SP}/>
+            <td colSpan={4} style={{...stickT(0),padding:0,verticalAlign:"middle"}}><CouponSectionPayment stage={1} applied={cpS1} onToggle={()=>setCpS1(p=>!p)}/></td>
+            <td style={SP}/>
+            <td colSpan={4} style={{...stickT(0),padding:0,verticalAlign:"middle"}}><CouponSectionPayment stage={2} applied={cpS2} onToggle={()=>setCpS2(p=>!p)}/></td>
+            <td style={SP}/>
+            <td colSpan={4} style={{...stickT(0),padding:0,verticalAlign:"middle"}}><CouponSectionPayment stage={3} applied={cpS3} onToggle={()=>setCpS3(p=>!p)}/></td>
+            <td style={SP}/>
+            <td colSpan={4} style={{...stickT(0),padding:0,verticalAlign:"middle"}}><CouponSectionPayment stage={4} applied={cpS4} onToggle={()=>setCpS4(p=>!p)}/></td>
+          </tr>
+
+          {/* ── Row 1: 컬럼 헤더 (top:48) ── */}
+          <tr style={{height:RH[1]}}>
+            <th style={{...TH(prodW,"left",0,0,{...stickTL(1,0),...bL,...bT,borderTopLeftRadius:4,borderTopRightRadius:4,...bRc,padding:0,overflow:"visible"})}}>
+              <div style={{display:"flex",alignItems:"center",padding:"12px 16px",width:"100%",overflow:"hidden",height:"100%"}}>
+                <p style={{...F(13,400,C.gray600),flex:"1 0 0",minWidth:23,textAlign:"center",lineHeight:"18px",maxHeight:36,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>상품</p>
+              </div>
+              {/* Resizer: overflow:hidden wrapper 밖 → 원형 전체 표시, right:-8으로 SP 영역에 걸침 */}
+              <Resizer/>
+            </th>
+            <td style={SP}/>{/* prod↔1-2 간격 */}
+            <th style={{...TH(W.qty,"right",16,8,{...stickT(1),...bL,...bT,borderTopLeftRadius:4})}}>수량</th>
+            <th style={{...TH(W.num,"right",8,8,{...stickT(1),...bT})}}>판매가</th>
+            <th style={{...TH(W.num,"right",8,8,{...stickT(1),...bT})}}>기본 할인</th>
+            <th style={{...TH(W.num,"right",8,8,{...stickT(1),...bT})}}>쿠폰 할인</th>
+            <th style={{...TH(W.num,"right",8,16,{...stickT(1),...bT,...bR,borderTopRightRadius:4})}}>혜택적용 상품가</th>
+            {stageHeaders.map((cols,si)=>(
+              <React.Fragment key={si}>
+                <td style={SP}/>
+                {cols.map((c,ci)=>(
+                  <th key={ci} style={{...TH(ci===0?W.chk:W.num,c.a,c.pl,c.last?16:8,{...stickT(1),...bT,...(ci===0?{...bL,borderTopLeftRadius:4}:{}),...(c.last?{...bR,borderTopRightRadius:4}:{})})}}>
+                    {c.n}
+                  </th>
+                ))}
+              </React.Fragment>
+            ))}
+          </tr>
+
+          {/* ── Row 2: 구분선 (top:90) ── */}
+          <tr style={{height:RH[2]}}>
+            <td style={{...stickTL(2,0,C.white,21),padding:0,height:RH[2],background:STR,...bL,...PW,...bRc}}><ResizeDragZone/></td>
+            <td style={SP}/>{/* prod↔1-2 간격 */}
+            <td colSpan={4} style={{...stickT(2),padding:0,height:RH[2],background:STR,...bL}}/>
+            <td style={{...stickT(2),padding:0,height:RH[2],background:STR,...bR}}/>
+            {[0,1,2,3].map(si=>(
+              <React.Fragment key={si}>
+                <td style={SP}/>
+                <td colSpan={4} style={{...stickT(2),padding:0,height:RH[2],background:STR,...bL,...bR}}/>
+              </React.Fragment>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          {rows.map((r,i)=>{
+            const last=isLast(i);
+            const bb=r.acc?bDiv:(last?bB:bDiv);
+            return(
+              <React.Fragment key={i}>
+                {/* ── 데이터 행 (h:76) ── */}
+                <tr>
+                  {/* 상품 — LEFT STICKY, acc 있는 행만 클릭 가능 */}
+                  <td style={{...stickL(0),...bL,...bb,minHeight:76,verticalAlign:"middle",overflow:"hidden",cursor:r.acc?"pointer":"default",...PW,...bRc,...(!r.acc&&last?{borderBottomLeftRadius:4,borderBottomRightRadius:4}:{})}} onClick={()=>r.acc&&toggleOpen(i)}>
+                    {/* row: pl:16 py:12, no paddingRight — AccordionButton은 flex child */}
+                    <div style={{display:"flex",alignItems:"center",paddingLeft:16,paddingTop:12,paddingBottom:12,width:"100%",height:"100%",overflow:"hidden"}}>
+                      {/* 상품: flex-[1_0_0] gap:8 items-start */}
+                      <div style={{display:"flex",flex:"1 0 0",gap:8,alignItems:"flex-start",minWidth:1,overflow:"hidden"}}>
+                        <div style={{width:40,height:40,background:C.gray200,borderRadius:2,flexShrink:0}}/>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",flex:"1 0 0",minWidth:1,overflow:"hidden"}}>
+                          <p style={{...F(12,400,C.gray700),lineHeight:1.4,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%"}}>{r.id}</p>
+                          <p style={{...F(13,400,C.primary),lineHeight:"18px",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%"}}>{r.name}</p>
+                          <p style={{...F(12,400,C.gray700),lineHeight:1.4,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%"}}>{r.option}</p>
+                        </div>
+                      </div>
+                      {/* AccordionButton: flex flex-row items-center self-stretch
+                          bg:white h-full px:6 → IconButton size:20 p:2
+                          icon inset[33.75%/16.25%/28.75%/16.25%] rotate-90 → ∨, open → ∧ */}
+                      {r.acc&&(
+                        <div style={{display:"flex",flexDirection:"row",alignItems:"center",alignSelf:"stretch"}}>
+                          <div style={{background:C.white,display:"flex",height:"100%",alignItems:"center",padding:"0 6px",flexShrink:0}}>
+                            <div style={{width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",padding:2,flexShrink:0}}>
+                              {/* chevron-down ∨: rotate(180deg) = ∧ when open */}
+                              <svg width="12" height="7" viewBox="0 0 12 7" fill="none"
+                                style={{flexShrink:0,transform:open[i]?"rotate(180deg)":"rotate(0deg)",transition:"transform 200ms"}}>
+                                <path d="M1 1L6 6L11 1" stroke={C.gray600} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <ResizeDragZone/>
+                  </td>
+                  {/* 1-2 */}
+                  <td style={SP}/>{/* prod↔1-2 간격 */}
+                  <td style={{...TD(W.qty,"right",16,8,{...bL,...bb,...(!r.acc&&last?{borderBottomLeftRadius:4}:{})})}}>{r.qty}</td>
+                  <td style={{...TD(W.num,"right",8,8,{...bb})}}>{r.price}</td>
+                  <td style={{...TD(W.num,"right",8,8,{...bb,opacity:.8})}}>{r.baseDc}</td>
+                  <td style={{...TD(W.num,"right",8,8,{...bb})}}>{r.cpDc}</td>
+                  <td style={{...TD(W.num,"right",8,16,{...bb,...bR,color:C.blue,fontWeight:600,...(!r.acc&&last?{borderBottomRightRadius:4}:{})})}}>{r.bp}</td>
+                  {/* S1~S4 */}
+                  {sData.map((S,si)=>(
+                    <React.Fragment key={si}>
+                      <td style={SP}/>
+                      <td style={{...TD(W.chk,"center",16,8,{...bL,...bb})}}><div style={{display:"flex",justifyContent:"center"}}><Chk on={true} toggle={null} state="disabled_checked"/></div></td>
+                      <td style={{...TD(W.num,"right",8,8,{...bb,opacity:.8})}}>{S[i].qm}</td>
+                      <td style={{...TD(W.num,"right",8,8,{...bb})}}>{S[i].dc}</td>
+                      <td style={{...TD(W.num,"right",8,16,{...bb,...bR,color:C.blue,fontWeight:500})}}>{S[i].p}</td>
+                    </React.Fragment>
+                  ))}
+                </tr>
+
+                {/* ── 아코디언 행: 항상 마운트, CSS Grid gridTemplateRows로 높이 애니메이션
+                    open=true: 0fr→1fr (열림), open=false: 1fr→0fr (닫힘) */}
+                {r.acc&&(()=>{
+                  const anim={display:"grid",gridTemplateRows:open[i]?"1fr":"0fr",transition:"grid-template-rows 250ms ease-out",overflow:"hidden"};
+                  const aInner={overflow:"hidden",minHeight:0};
+                  const accBorder=open[i]?(last?bB:bDiv):{};
+                  const accBorderL=open[i]?bL:{};
+                  const accBorderR=open[i]?bRc:{};
+                  const accRadius=open[i]&&last?{borderBottomLeftRadius:4,borderBottomRightRadius:4}:{};
+                  return(
+                    <tr>
+                      <td style={{...stickL(0,C.gray40),...accBorderL,...accBorder,...PW,...accBorderR,...accRadius,padding:0,verticalAlign:"top"}}>
+                        <div style={anim}><div style={aInner}>
+                          <div style={{overflow:"hidden",paddingLeft:67,paddingRight:10,paddingTop:8,paddingBottom:8}}>
+                            <div style={{display:"flex",gap:4,alignItems:"flex-start",flex:1,minWidth:0}}>
+                              <div style={{width:10,height:17,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                  <rect x="2" y="0" width="1" height="8" fill="#CCCCCC"/>
+                                  <rect x="2" y="7" width="6" height="1" fill="#CCCCCC"/>
+                                </svg>
+                              </div>
+                              <p style={{...F(12,400,C.primary),lineHeight:1.4,overflow:"hidden",whiteSpace:"pre-wrap",textOverflow:"ellipsis",flex:1,minWidth:0}}>{"HA1000306\u00A0\u00A0H) 시공 커튼식 비닐보양지 2.7m*18m"}</p>
+                            </div>
+                          </div>
+                        </div></div>
+                        <ResizeDragZone/>
+                      </td>
+                      <td style={SP}/>{/* prod↔1-2 간격 */}
+                      {[
+                        {w:W.qty,al:"right",pl:16,pr:8,v:r.acc.qty,ex:{...bL,...(last?{borderBottomLeftRadius:4}:{})}},
+                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.price,ex:{}},
+                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.baseDc,ex:{opacity:.8}},
+                        {w:W.num,al:"right",pl:8,pr:8,v:r.acc.cpDc,ex:{}},
+                        {w:W.num,al:"right",pl:8,pr:16,v:r.acc.bp,ex:{...bR,color:C.blue,...(last?{borderBottomRightRadius:4}:{})}},
+                      ].map((c,ci)=>(
+                        <td key={ci} style={{...F(13,400,C.gray800),width:c.w,minWidth:c.w,background:C.gray40,...accBorder,...c.ex,padding:0,verticalAlign:"top",textAlign:c.al}}>
+                          <div style={anim}><div style={aInner}>
+                            <div style={{paddingLeft:c.pl,paddingRight:c.pr,paddingTop:8,paddingBottom:8}}>{c.v}</div>
+                          </div></div>
+                        </td>
+                      ))}
+                      {sData.map((S,si)=>(
+                        <React.Fragment key={si}>
+                          <td style={SP}/>
+                          {S[i].acc?(
+                            <>
+                              <td style={{...F(13,400,C.gray800),width:W.chk,minWidth:W.chk,background:C.gray40,...accBorderL,...accBorder,padding:0,verticalAlign:"top",textAlign:"center"}}>
+                                <div style={anim}><div style={aInner}>
+                                  <div style={{paddingLeft:16,paddingRight:8,paddingTop:8,paddingBottom:8,display:"flex",justifyContent:"center"}}><Chk on={S[i].acc.chk} toggle={null} state="disabled_checked"/></div>
+                                </div></div>
+                              </td>
+                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,padding:0,verticalAlign:"top",textAlign:"right"}}>
+                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:8,paddingTop:8,paddingBottom:8}}>{S[i].acc.qm}</div></div></div>
+                              </td>
+                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,padding:0,verticalAlign:"top",textAlign:"right"}}>
+                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:8,paddingTop:8,paddingBottom:8}}>
+                                  {S[i].acc.dcNote?<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end"}}><span>{S[i].acc.dc}</span><span style={{fontSize:10,color:C.blue,lineHeight:1.4}}>{S[i].acc.dcNote}</span></div>:S[i].acc.dc}
+                                </div></div></div>
+                              </td>
+                              <td style={{...F(13,400,C.gray800),width:W.num,minWidth:W.num,background:C.gray40,...accBorder,...bR,color:C.blue,padding:0,verticalAlign:"top",textAlign:"right"}}>
+                                <div style={anim}><div style={aInner}><div style={{paddingLeft:8,paddingRight:16,paddingTop:8,paddingBottom:8}}>{S[i].acc.p}</div></div></div>
+                              </td>
+                            </>
+                          ):(
+                            <td colSpan={4} style={{...F(13,400,C.gray800),background:C.gray40,...accBorderL,...bR,...accBorder,padding:0,verticalAlign:"top"}}>
+                              <div style={anim}><div style={aInner}><div style={{paddingLeft:16,paddingRight:16,paddingTop:8,paddingBottom:8}}/></div></div>
+                            </td>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  );
+                })()}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    {/* resizeGuideLine: tableSection 높이에 맞게 scoped
+        position:fixed + containerBounds → 스크롤 영역 top/height 기준 */}
+    {isResizing&&containerBounds&&(
+      <div style={{
+        position:"fixed",
+        left:resizeX,
+        top:containerBounds.top,
+        height:containerBounds.height,
+        width:2,
+        background:"#85B2F9",
+        pointerEvents:"none",
+        zIndex:9999,
+      }}/>
+    )}
+    </React.Fragment>
+  );
+}
+
+/* ── App ── */
+function App(){
+  const[show,setShow]=useState(true);
+  const[closing,setClosing]=useState(false);
+  const[cpLeft,setCpLeft]=useState(false);
+  const[cpS1,setCpS1]=useState(false);
+  const[cpS2,setCpS2]=useState(false);
+  const[cpS3,setCpS3]=useState(false);
+  const[cpS4,setCpS4]=useState(false);
+  const CHK=[false,true,true,true,true,true,true,true];
+  const[s1C,setS1C]=useState([...CHK]);
+  const[s2C,setS2C]=useState([...CHK]);
+  const[s3C,setS3C]=useState([...CHK]);
+  const[s4C,setS4C]=useState([...CHK]);
+  const[openRows,setOpenRows]=useState({0:true});
+  const toggleOpen=i=>setOpenRows(p=>({...p,[i]:!p[i]}));
+  const expandAll=()=>setOpenRows(Object.fromEntries(PRODUCTS.map((_,i)=>[i,true])));
+  const collapseAll=()=>setOpenRows({});
+
+  /* ── 상품 컬럼 리사이즈 (App에서 관리 → 팝업 너비 연동) ── */
+  const [prodW, setProdW] = useState(280);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeX, setResizeX] = useState(0);
+  const startResize = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX=e.clientX, startW=prodW;
+    setIsResizing(true);
+    setResizeX(e.clientX);
+    const onMove=(ev)=>{
+      setProdW(Math.max(68,Math.min(520,startW+ev.clientX-startX)));
+      setResizeX(ev.clientX);
+    };
+    const onUp=()=>{
+      setIsResizing(false);
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+    };
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  };
+
+  /* 테이블 전체 너비: prodW + 고정 열 합산(2146) + 팝업 좌우 패딩(56)
+     auto layout hug 기준 추정: 1-2(426) + spacer×4(32) + stage×4(422×4) = 2146 */
+  const tableW  = prodW + 2154;
+  const popupW  = `min(95vw, ${tableW + 56}px)`;
+  const close=()=>{setClosing(true);setTimeout(()=>{setShow(false);setClosing(false);},IX.modal.d);};
+  const anim=closing?`fo ${IX.modal.d}ms ${IX.modal.e} forwards`:`fi ${IX.modal.d}ms ${IX.modal.e} forwards`;
+
+  return(
+    <div style={{width:"100%",height:"100vh",background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',-apple-system,sans-serif"}}>
+      {show&&(
+        <div onClick={e=>e.target===e.currentTarget&&close()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,animation:anim}}>
+          <div style={{width:popupW,background:C.white,borderRadius:2,display:"flex",flexDirection:"column",maxHeight:"90vh",animation:anim,padding:"16px 28px 0"}} onClick={e=>e.stopPropagation()}>
+            {/* 전역 col-resize 커서 오버레이 */}
+            {isResizing&&<div style={{position:"fixed",inset:0,cursor:"col-resize",userSelect:"none",zIndex:9998}}/>}
+            {/* 타이틀 */}
+            <div style={{flexShrink:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",height:48,padding:"4px 0"}}>
+                <span style={{...F(24,500),lineHeight:1.4}}>혜택 확인하기</span>
+                <div style={{width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={close}>
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none"><path d="M2 2L19 19M19 2L2 19" stroke={C.primary} strokeWidth="2" strokeLinecap="round"/></svg>
+                </div>
+              </div>
+              <div style={{height:2,background:C.primary,marginTop:8}}/>
+            </div>
+            {/* Notice */}
+            <div style={{flexShrink:0,display:"flex",gap:24,alignItems:"flex-start",background:C.gray40,borderRadius:2,padding:"10px 16px",marginTop:8}}>
+              {["상품쿠폰이 변경되면 결제쿠폰은 모두 초기화됩니다.","결제쿠폰 할인은 CR로 할인됩니다. (상품에 할인금액이 직접 반영되지 않습니다.)","결제쿠폰은 순차적으로 적용됩니다. (이전 단계 할인 적용된 금액을 기준으로 계산됩니다.)"].map((txt,i)=>(
+                <div key={i} style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start",flexShrink:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <div style={{width:2,height:2,borderRadius:"50%",background:C.gray700,flexShrink:0}}/>
+                    <span style={{...F(12,400,C.gray700),lineHeight:1.4,whiteSpace:"nowrap"}}>{txt}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 테이블 */}
+            <BenefitTable
+              rows={PRODUCTS} open={openRows} toggleOpen={toggleOpen}
+              expandAll={expandAll} collapseAll={collapseAll}
+              cpLeft={cpLeft} setCpLeft={setCpLeft}
+              cpS1={cpS1} setCpS1={setCpS1} cpS2={cpS2} setCpS2={setCpS2}
+              cpS3={cpS3} setCpS3={setCpS3} cpS4={cpS4} setCpS4={setCpS4}
+              s1C={s1C} setS1C={setS1C} s2C={s2C} setS2C={setS2C}
+              s3C={s3C} setS3C={setS3C} s4C={s4C} setS4C={setS4C}
+              prodW={prodW} startResize={startResize} isResizing={isResizing} resizeX={resizeX}
+            />
+            {/* bottomFixed_CR */}
+            <BottomFixedCR/>
+            {/* bottomFixed_sum */}
+            <PriceFooter/>
+            {/* btn_foot */}
+            <div style={{display:"flex",justifyContent:"center",gap:8,padding:"16px 0 24px",flexShrink:0}}>
+              <button onClick={close} style={{...F(16,400),width:141,height:48,border:`1px solid ${C.primary}`,borderRadius:30,background:C.white,cursor:"pointer"}}>취소</button>
+              <button onClick={close} style={{...F(16,400,C.white),width:141,height:48,border:"none",borderRadius:30,background:C.primary,cursor:"pointer"}}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {!show&&(
+        <button onClick={()=>setShow(true)} style={{...F(16,400,C.white),background:C.primary,border:"none",borderRadius:30,padding:"14px 32px",cursor:"pointer"}}>혜택 확인하기 열기</button>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
