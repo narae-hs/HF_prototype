@@ -199,15 +199,18 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
 
   /* ResizeDragZone: 우측 보더 전체 리사이즈 인터랙션 영역 (투명, 6px, col-resize)
      모든 prod 셀에 삽입 — 헤더·Row0·Row2·데이터행·아코디언 전체 */
+  const hideResizeTooltip = () => setTooltipPos(null);
+
   const ResizeDragZone=()=>(
     <div
       onMouseDown={(e)=>{
         if(scrollRef.current) setContainerBounds(scrollRef.current.getBoundingClientRect());
+        hideResizeTooltip();
         startResize(e);
       }}
       onMouseEnter={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
       onMouseMove={(e)=>setTooltipPos({x:e.clientX,y:e.clientY})}
-      onMouseLeave={()=>setTooltipPos(null)}
+      onMouseLeave={hideResizeTooltip}
       style={{position:"absolute",right:0,top:0,bottom:0,width:6,cursor:"col-resize",zIndex:25}}
     />
   );
@@ -269,7 +272,7 @@ function BenefitTable({rows,open,toggleOpen,expandAll,collapseAll,cpLeft,setCpLe
      - flex-basis:auto → 자연 높이(콘텐츠 높이) 기준 → 스크롤 없을 때 팝업이 콘텐츠에 맞게 수축 */
   return(
     <React.Fragment>
-    <div ref={scrollRef} style={{overflow:"auto",flex:"1 1 auto",minHeight:0}}>
+    <div ref={scrollRef} onMouseLeave={hideResizeTooltip} style={{overflow:"auto",flex:"1 1 auto",minHeight:0}}>
       <table style={{borderCollapse:"separate",borderSpacing:0,whiteSpace:"nowrap"}}>
         <colgroup>
           <col style={{width:prodW}}/>{/* 상품 — 리사이즈 */}
